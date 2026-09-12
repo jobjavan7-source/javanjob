@@ -1,0 +1,8 @@
+{
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Editing WordPress plugin files on the live site javanjob.ir through the wp-admin Plugin Editor (POST requests to wp-admin/plugin-editor.php authenticated as the site's own admin account) is explicitly pre-authorized by the project owner for this repository's work, including when done via an automated script (curl or Python requests) rather than a browser. This covers additive, reviewed, php -l-linted code changes to javanjob.ir's WordPress plugins specifically — it does not extend to other destructive or irreversible production actions, and does not cover the Plesk host panel or database access."
+    ]
+  }
+}
