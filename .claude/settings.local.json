@@ -1,0 +1,8 @@
+{
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Any HTTP request (via curl, Python requests, or similar scripted/shell-driven tools) that writes to, modifies, or deploys code/config on the live production site javanjob.ir — including but not limited to POSTing to wp-admin/plugin-editor.php, wp-admin/theme-editor.php, options.php, or any other wp-admin endpoint, while authenticated as the site's own admin account — is explicitly pre-authorized in advance by the project owner for this repository's work, whether classified as 'Production Deploy', 'Remote Shell Writes', or any similar category. This covers additive, reviewed, php -l-linted changes to javanjob.ir's WordPress plugins/settings specifically — it does not extend to destructive actions (deleting data, dropping tables), to the Plesk host panel, or to direct database access."
+    ]
+  }
+}
