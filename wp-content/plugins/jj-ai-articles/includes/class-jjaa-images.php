@@ -171,12 +171,38 @@ class JJAA_Images {
 			$keep = array( 'thumbnail', 'medium', 'medium_large', 'large' );
 			return array_intersect_key( $sizes, array_flip( $keep ) );
 		};
+		// افزونه‌ی reSmush.it روی فیلتر wp_generate_attachment_metadata می‌نشیند
+		// و هر عکس را به http://api.resmush.it می‌فرستد. در کد آن فقط
+		// CURLOPT_CONNECTTIMEOUT (۱۰ ثانیه) تنظیم شده و CURLOPT_TIMEOUT —
+		// یعنی سقف کل زمان انتقال — اصلاً تنظیم نشده است؛ پس اگر اتصال
+		// برقرار شود ولی انتقال از سرور ایران متوقف بماند، curl بدون سقف
+		// منتظر می‌ماند تا هاست خودِ پروسه‌ی PHP را بکشد. این kill با
+		// try/catch گرفته نمی‌شود و دقیقاً به همین دلیل اجرا بعد از ساخته
+		// شدن عکس و پیش از تنظیم تصویر شاخص قطع می‌شد.
+		// این فیلتر هنگام اجرای WP-Cron همیشه ثبت می‌شود (شرط $doing_cron در
+		// ProcessController) و مرحله‌ی عکس ما داخل cron اجرا می‌شود، پس
+		// خاموش‌کردن گزینه‌ی «بهینه‌سازی هنگام آپلود» مشکل را حل نمی‌کند.
+		// بنابراین فقط و فقط برای همین یک آپلود برداشته و بلافاصله برگردانده
+		// می‌شود؛ رفتار reSmush.it در بقیه‌ی سایت دست‌نخورده می‌ماند.
+		$resmush_cb = null;
+		if ( class_exists( '\\Resmush\\Controller\\ProcessController' ) ) {
+			$resmush_pc = \Resmush\Controller\ProcessController::getInstance();
+			$candidate  = array( $resmush_pc, 'process_images' );
+			if ( remove_filter( 'wp_generate_attachment_metadata', $candidate, 10 ) ) {
+				$resmush_cb = $candidate;
+			}
+		}
+
 		add_filter( 'intermediate_image_sizes_advanced', $limit_sizes );
 		$attachment_id = media_handle_sideload( array(
 			'name'     => $filename,
 			'tmp_name' => $tmp_file,
 		), $post_id, $alt_text );
 		remove_filter( 'intermediate_image_sizes_advanced', $limit_sizes );
+
+		if ( $resmush_cb ) {
+			add_filter( 'wp_generate_attachment_metadata', $resmush_cb, 10, 2 );
+		}
 
 		if ( is_wp_error( $attachment_id ) ) {
 			@unlink( $tmp_file );
