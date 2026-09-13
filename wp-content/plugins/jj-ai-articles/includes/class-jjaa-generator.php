@@ -2,7 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * موتور اصلی تولید مقاله: ساخت پرامپت، فراخوانی GapGPT، تولید پست
+ * موتور اصلی تولید مقاله: ساخت پرامپت، فراخوانی Gemini، تولید پست
  * وردپرس، افزودن تصاویر (شاخص + درون‌متنی)، و ذخیره‌ی فیلدهای سئو/GEO
  * اختصاصی (پست‌متا، مستقل از هر افزونه‌ی دیگر).
  *
@@ -37,7 +37,7 @@ class JJAA_Generator {
 	 */
 	public static function run( $overrides = array() ) {
 		// روی این هاست max_execution_time پیش‌فرض ۳۰ ثانیه است؛ تولید یک
-		// مقاله‌ی کامل (فراخوانی GapGPT + دانلود چند عکس) معمولاً بیشتر طول
+		// مقاله‌ی کامل (فراخوانی Gemini + دانلود چند عکس) معمولاً بیشتر طول
 		// می‌کشد، پس این محدودیت را فقط برای همین اجرای Cron برمی‌داریم.
 		if ( function_exists( 'set_time_limit' ) ) {
 			@set_time_limit( 0 );
@@ -51,7 +51,7 @@ class JJAA_Generator {
 		$avoid_titles = $topic === '' ? self::recent_titles( 20 ) : array();
 		$prompt       = self::build_prompt( $avoid_titles, $topic, $word_count );
 
-		$raw = JJAA_GapGPT::chat( array(
+		$raw = JJAA_Gemini::chat( array(
 			array( 'role' => 'user', 'content' => $prompt ),
 		) );
 
@@ -108,7 +108,7 @@ class JJAA_Generator {
 یک مقاله‌ی تازه با این ویژگی‌ها بنویس:
 - {$topic_text}
 - {$length_text}
-- لحن: کاملاً انسانی، ساده و روان، محاوره‌ای‌نه‌رسمیِ خشک؛ جمله‌های با طول متفاوت؛ استفاده از مثال واقعی و ملموس؛ بدون تکرار الگوی رباتیک، بدون اشاره به هوش مصنوعی/ChatGPT/GapGPT به هیچ شکل.
+- لحن: کاملاً انسانی، ساده و روان، محاوره‌ای‌نه‌رسمیِ خشک؛ جمله‌های با طول متفاوت؛ استفاده از مثال واقعی و ملموس؛ بدون تکرار الگوی رباتیک، بدون اشاره به هوش مصنوعی/ChatGPT/Gemini به هیچ شکل.
 - ساختار: مقدمه‌ی کوتاه جذاب، چند بخش با تیتر H2 (و در صورت نیاز H3)، در ابتدای هر بخش پاسخ مستقیم و خلاصه به سؤال آن بخش بیاور (برای سازگاری با موتورهای پاسخ‌گوی هوش مصنوعی/GEO)، پاراگراف‌های کوتاه (۲ تا ۴ جمله)، حداقل یک لیست (ul/ol) در متن، و یک بخش «سؤالات متداول» در پایان با ۴ تا ۶ سؤال و پاسخ کوتاه.
 - سئو: از کلمه‌ی کلیدی اصلی به‌طور طبیعی (نه تکرار زورکی) در تیتر، مقدمه، و حداقل یکی از H2ها استفاده کن.
 - {$avoid_text}
@@ -145,7 +145,7 @@ PROMPT;
 
 		$data = json_decode( $clean, true );
 		if ( ! is_array( $data ) || empty( $data['title'] ) || empty( $data['body_html'] ) ) {
-			return new WP_Error( 'jjaa_bad_json', 'پاسخ GapGPT به‌صورت JSON معتبر قابل‌پارس نبود.' );
+			return new WP_Error( 'jjaa_bad_json', 'پاسخ Gemini به‌صورت JSON معتبر قابل‌پارس نبود.' );
 		}
 
 		$data['title']             = sanitize_text_field( $data['title'] );

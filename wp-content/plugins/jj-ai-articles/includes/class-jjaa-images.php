@@ -18,7 +18,7 @@ class JJAA_Images {
 	}
 
 	/**
-	 * برای هر عبارت جست‌وجو، یک عکس (از Pexels یا در نبود نتیجه از GapGPT)
+	 * برای هر عبارت جست‌وجو، یک عکس (از Pexels یا در نبود نتیجه از Gemini)
 	 * دانلود و به کتابخانه‌ی رسانه اضافه می‌کند.
 	 * @param string[] $queries
 	 * @param int $post_id برای اتصال رسانه به همان پست (post_parent)
@@ -97,8 +97,8 @@ class JJAA_Images {
 		if ( empty( $api_key ) ) {
 			return array( null, 'no pexels api key configured' );
 		}
-		$relay_url    = JJAA_GapGPT::relay_url();
-		$relay_secret = JJAA_GapGPT::relay_secret();
+		$relay_url    = JJAA_Gemini::relay_url();
+		$relay_secret = JJAA_Gemini::relay_secret();
 		if ( '' === $relay_url || '' === $relay_secret ) {
 			return array( null, 'relay (Cloudflare Worker) not configured' );
 		}
@@ -147,8 +147,8 @@ class JJAA_Images {
 		// دانلود مستقیم فایل عکس از دامنه‌ی CDN عکس‌های Pexels (images.pexels.com)
 		// هم مثل خودِ API جست‌وجو از سرور ایران قطع می‌شد؛ باید از همان Worker
 		// واسط عبور کند، نه دانلود مستقیم.
-		$relay_url    = JJAA_GapGPT::relay_url();
-		$relay_secret = JJAA_GapGPT::relay_secret();
+		$relay_url    = JJAA_Gemini::relay_url();
+		$relay_secret = JJAA_Gemini::relay_secret();
 		if ( '' === $relay_url || '' === $relay_secret ) {
 			return array( 0, 'relay not configured for image download' );
 		}

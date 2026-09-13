@@ -42,7 +42,7 @@ class JJAA_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( 'دسترسی مجاز نیست.', 403 );
 		check_ajax_referer( 'jjaa_list_models' );
 
-		$models = JJAA_GapGPT::list_models();
+		$models = JJAA_Gemini::list_models();
 		if ( is_wp_error( $models ) ) {
 			wp_send_json_error( $models->get_error_message() );
 		}
