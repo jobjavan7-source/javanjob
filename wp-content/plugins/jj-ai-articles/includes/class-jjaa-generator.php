@@ -14,9 +14,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  */
 class JJAA_Generator {
 
-	/** @var float دیباگ موقت: زمان شروع run() برای اندازه‌گیری مدت اجرا. */
-	public static $start_time = 0;
-
 	const META_FLAG        = '_jjaa_generated';
 	const META_TITLE        = '_jjaa_seo_title';
 	const META_DESCRIPTION  = '_jjaa_seo_description';
@@ -39,8 +36,6 @@ class JJAA_Generator {
 	 * @return int|WP_Error post_id در موفقیت
 	 */
 	public static function run( $overrides = array() ) {
-		self::$start_time = microtime( true );
-
 		// روی این هاست max_execution_time پیش‌فرض ۳۰ ثانیه است؛ تولید یک
 		// مقاله‌ی کامل (فراخوانی GapGPT + دانلود چند عکس) معمولاً بیشتر طول
 		// می‌کشد، پس این محدودیت را فقط برای همین اجرای Cron برمی‌داریم.
@@ -241,19 +236,15 @@ PROMPT;
 	 * زده می‌شود، نه مستقیم از run()).
 	 */
 	public static function run_attach_images( $post_id, $queries ) {
-		update_option( 'jjaa_debug_marker', 'run_attach_images ENTERED post_id=' . $post_id . ' time=' . current_time( 'mysql' ), false );
-
 		if ( function_exists( 'set_time_limit' ) ) {
 			@set_time_limit( 0 );
 		}
-		self::$start_time = microtime( true );
 
 		// تصویر شاخص (اولین تصویر موفق) همین داخل fetch_and_attach تنظیم
 		// می‌شود، نه این‌جا — چون باید بلافاصله بعد از اولین موفقیت ثبت
 		// شود، نه بعد از پردازش کامل همه‌ی عبارت‌ها.
 		$attachment_ids = JJAA_Images::fetch_and_attach( $queries, $post_id );
 
-		update_option( 'jjaa_debug_marker', 'run_attach_images fetch_and_attach RETURNED count=' . count( $attachment_ids ) . ' post_id=' . $post_id, false );
 		if ( empty( $attachment_ids ) ) {
 			return;
 		}

@@ -89,7 +89,6 @@ class JJAA_Settings {
 		$pexels_key      = get_option( 'jjaa_pexels_api_key', '' );
 		$last_log        = get_option( 'jjaa_last_run_log', array() );
 		$image_diag      = get_option( 'jjaa_last_image_diagnostics', '' );
-		$debug_marker    = get_option( 'jjaa_debug_marker', '' );
 		$next_run        = wp_next_scheduled( JJAA_Cron::HOOK_AUTO );
 		?>
 		<div class="wrap" dir="rtl">
@@ -152,11 +151,6 @@ class JJAA_Settings {
 			<?php if ( '' !== $image_diag ) : ?>
 				<h2>نتیجه‌ی آخرین تلاش برای عکس‌ها</h2>
 				<pre style="background:#f6f7f7;padding:10px;max-width:800px;overflow:auto;direction:ltr;text-align:left;"><?php echo esc_html( $image_diag ); ?></pre>
-			<?php endif; ?>
-
-			<?php if ( '' !== $debug_marker ) : ?>
-				<h2>نشانه‌ی دیباگ موقت</h2>
-				<pre style="background:#f6f7f7;padding:10px;max-width:800px;overflow:auto;direction:ltr;text-align:left;"><?php echo esc_html( $debug_marker ); ?></pre>
 			<?php endif; ?>
 
 			<hr>
