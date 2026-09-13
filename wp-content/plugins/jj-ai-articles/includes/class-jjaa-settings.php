@@ -11,6 +11,15 @@ class JJAA_Settings {
 
 	const OPTION_GROUP = 'jjaa_settings_group';
 
+	/**
+	 * زمان‌بندی گروهِ تنظیماتِ جداگانه‌ای دارد و این عمدی است:
+	 * wp-admin/options.php هنگام ذخیره‌ی یک فرم، روی *همه‌ی* گزینه‌های آن
+	 * گروه update_option می‌زند و هر گزینه‌ای که در POST نباشد را null
+	 * می‌کند. اگر هر دو فرم در یک گروه بودند، ذخیره‌ی فرم زمان‌بندی آدرس
+	 * Worker و سکرت را پاک می‌کرد (و برعکس).
+	 */
+	const SCHEDULE_GROUP = 'jjaa_schedule_group';
+
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu' ) );
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
@@ -36,6 +45,52 @@ class JJAA_Settings {
 		register_setting( self::OPTION_GROUP, 'jjaa_gemini_model', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( self::OPTION_GROUP, 'jjaa_image_gen_model', array( 'sanitize_callback' => 'sanitize_text_field' ) );
 		register_setting( self::OPTION_GROUP, 'jjaa_pexels_api_key', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+
+		// --- زمان‌بندی تولید خودکار ---
+		register_setting( self::SCHEDULE_GROUP, 'jjaa_schedule_mode', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_schedule_mode' ) ) );
+		register_setting( self::SCHEDULE_GROUP, 'jjaa_schedule_time', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_schedule_time' ) ) );
+		register_setting( self::SCHEDULE_GROUP, 'jjaa_schedule_days', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_schedule_days' ) ) );
+		register_setting( self::SCHEDULE_GROUP, 'jjaa_auto_word_count', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_word_count' ) ) );
+		register_setting( self::SCHEDULE_GROUP, 'jjaa_auto_image_count', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_image_count' ) ) );
+
+		// تغییر هرکدام از این‌ها باید نوبت بعدی را همان لحظه جابه‌جا کند،
+		// وگرنه ساعت/روزِ تازه تا بعد از اجرای بعدیِ قدیمی اثر نمی‌کرد.
+		foreach ( array( 'jjaa_schedule_mode', 'jjaa_schedule_time', 'jjaa_schedule_days' ) as $opt ) {
+			add_action( "update_option_{$opt}", array( 'JJAA_Cron', 'reschedule' ), 10, 0 );
+			add_action( "add_option_{$opt}", array( 'JJAA_Cron', 'reschedule' ), 10, 0 );
+		}
+	}
+
+	public static function sanitize_schedule_mode( $v ) {
+		return in_array( $v, array( 'daily', 'weekly', 'off' ), true ) ? $v : JJAA_Cron::DEFAULT_MODE;
+	}
+
+	public static function sanitize_schedule_time( $v ) {
+		$v = trim( (string) $v );
+		return preg_match( '/^([01]?\d|2[0-3]):([0-5]\d)$/', $v ) ? $v : JJAA_Cron::DEFAULT_TIME;
+	}
+
+	public static function sanitize_schedule_days( $v ) {
+		if ( ! is_array( $v ) ) {
+			return JJAA_Cron::DEFAULT_DAYS;
+		}
+		$days = array_values( array_unique( array_filter( array_map( 'intval', $v ), function ( $d ) {
+			return $d >= 0 && $d <= 6;
+		} ) ) );
+		sort( $days );
+		// خالی‌گذاشتن همه‌ی روزها یعنی هیچ‌وقت اجرا نشود — که کار «خاموش»
+		// است، نه زمان‌بندی هفتگی؛ پس به پیش‌فرض برمی‌گردیم تا زنجیره نمیرد.
+		return empty( $days ) ? JJAA_Cron::DEFAULT_DAYS : $days;
+	}
+
+	public static function sanitize_word_count( $v ) {
+		$n = (int) $v;
+		return ( $n >= 300 && $n <= 6000 ) ? $n : JJAA_Generator::DEFAULT_WORD_COUNT;
+	}
+
+	public static function sanitize_image_count( $v ) {
+		$n = (int) $v;
+		return ( $n >= 0 && $n <= 6 ) ? $n : JJAA_Generator::DEFAULT_IMAGE_COUNT;
 	}
 
 	public static function ajax_list_models() {
@@ -90,6 +145,12 @@ class JJAA_Settings {
 		$last_log        = get_option( 'jjaa_last_run_log', array() );
 		$image_diag      = get_option( 'jjaa_last_image_diagnostics', '' );
 		$next_run        = wp_next_scheduled( JJAA_Cron::HOOK_AUTO );
+		$sched_mode      = JJAA_Cron::mode();
+		$sched_time      = get_option( 'jjaa_schedule_time', JJAA_Cron::DEFAULT_TIME );
+		$sched_days      = JJAA_Cron::days();
+		$auto_words      = (int) get_option( 'jjaa_auto_word_count', JJAA_Generator::DEFAULT_WORD_COUNT );
+		$auto_images     = (int) get_option( 'jjaa_auto_image_count', JJAA_Generator::DEFAULT_IMAGE_COUNT );
+		$day_names       = array( 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه' );
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>مقالات هوش مصنوعی (کار و اقتصاد)</h1>
@@ -154,13 +215,64 @@ class JJAA_Settings {
 			<?php endif; ?>
 
 			<hr>
-			<h2>زمان‌بندی خودکار</h2>
+			<h2>زمان‌بندی تولید خودکار</h2>
 			<p>
-				تولید خودکار: هر یکشنبه و پنج‌شنبه، ساعت ۱۸:۰۰ به‌وقت تهران.
-				<?php if ( $next_run ) : ?>
+				<?php if ( $sched_mode === 'off' ) : ?>
+					تولید خودکار <strong>خاموش</strong> است.
+				<?php elseif ( $next_run ) : ?>
 					اجرای بعدی: <strong><?php echo esc_html( wp_date( 'Y/m/d H:i', $next_run ) ); ?></strong>
+					(به‌وقت <?php echo esc_html( wp_timezone_string() ); ?>)
+				<?php else : ?>
+					<em>هنوز نوبتی زمان‌بندی نشده — تنظیمات زیر را ذخیره کنید.</em>
 				<?php endif; ?>
 			</p>
+
+			<form method="post" action="options.php">
+				<?php settings_fields( self::SCHEDULE_GROUP ); ?>
+				<table class="form-table">
+					<tr>
+						<th scope="row">هر چند وقت؟</th>
+						<td>
+							<label><input type="radio" name="jjaa_schedule_mode" value="daily" <?php checked( $sched_mode, 'daily' ); ?>> روزانه</label><br>
+							<label><input type="radio" name="jjaa_schedule_mode" value="weekly" <?php checked( $sched_mode, 'weekly' ); ?>> فقط روزهای انتخابی هفته</label><br>
+							<label><input type="radio" name="jjaa_schedule_mode" value="off" <?php checked( $sched_mode, 'off' ); ?>> خاموش (فقط تولید دستی)</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="jjaa_schedule_time">ساعت انتشار</label></th>
+						<td>
+							<input type="time" name="jjaa_schedule_time" id="jjaa_schedule_time" value="<?php echo esc_attr( $sched_time ); ?>">
+							<p class="description">به‌وقت سایت (<?php echo esc_html( wp_timezone_string() ); ?>).</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">روزهای هفته</th>
+						<td>
+							<?php foreach ( $day_names as $idx => $label ) : ?>
+								<label style="display:inline-block;margin-left:14px;">
+									<input type="checkbox" name="jjaa_schedule_days[]" value="<?php echo (int) $idx; ?>" <?php checked( in_array( $idx, $sched_days, true ) ); ?>>
+									<?php echo esc_html( $label ); ?>
+								</label>
+							<?php endforeach; ?>
+							<p class="description">فقط وقتی حالت «روزهای انتخابی هفته» باشد اثر دارد. در حالت روزانه نادیده گرفته می‌شود.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="jjaa_auto_word_count">تعداد کلمه (اجرای خودکار)</label></th>
+						<td>
+							<input type="number" name="jjaa_auto_word_count" id="jjaa_auto_word_count" value="<?php echo (int) $auto_words; ?>" min="300" max="6000" step="100" class="small-text">
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="jjaa_auto_image_count">تعداد عکس (اجرای خودکار)</label></th>
+						<td>
+							<input type="number" name="jjaa_auto_image_count" id="jjaa_auto_image_count" value="<?php echo (int) $auto_images; ?>" min="0" max="6" class="small-text">
+							<p class="description">اولین عکس تصویر شاخص می‌شود و بقیه بین بخش‌های مقاله پخش می‌شوند. صفر یعنی بدون عکس.</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( 'ذخیره‌ی زمان‌بندی' ); ?>
+			</form>
 
 			<h2>تنظیمات API</h2>
 			<form method="post" action="options.php">
