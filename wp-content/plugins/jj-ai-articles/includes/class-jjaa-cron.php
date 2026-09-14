@@ -33,6 +33,12 @@ class JJAA_Cron {
 		add_action( self::HOOK_MANUAL, array( __CLASS__, 'run_manual' ) );
 		add_action( self::HOOK_ATTACH_IMAGES, array( __CLASS__, 'run_attach_images' ), 10, 2 );
 		self::maybe_migrate();
+
+		// تور ایمنی: اگر به هر دلیلی نوبت بعدی از صف افتاده باشد (اجرای
+		// نیمه‌کاره، پاک‌شدن رویدادهای cron، افزونه‌ی دیگر)، اولین بازدید
+		// بعدی دوباره آن را می‌سازد. ensure_scheduled() اگر نوبتی در صف
+		// باشد کاری نمی‌کند، پس هزینه‌اش فقط یک خواندن از آپشن cron است.
+		self::ensure_scheduled();
 	}
 
 	public static function activate() {
@@ -101,14 +107,20 @@ class JJAA_Cron {
 	 * تنظیمات گذاشته (نه ثابت‌های داخل کد)، سپس زمان‌بندی نوبت بعدی.
 	 */
 	public static function run_auto() {
+		// نوبت بعدی *قبل* از تولید زمان‌بندی می‌شود، نه بعد از آن.
+		// قبلاً ترتیب برعکس بود و این زنجیره را شکننده می‌کرد: اگر تولید
+		// مقاله شکست می‌خورد — یا مثل همیشه روی این هاست، پروسه وسط کار
+		// کشته می‌شد — خط زمان‌بندی هرگز اجرا نمی‌شد و هیچ نوبت بعدی‌ای
+		// ساخته نمی‌شد. یعنی یک شکست، تولید خودکار را برای همیشه متوقف
+		// می‌کرد (دقیقاً همین اتفاق در اولین اجرای روزانه افتاد).
+		if ( self::mode() !== 'off' ) {
+			wp_schedule_single_event( self::next_occurrence(), self::HOOK_AUTO );
+		}
+
 		JJAA_Generator::run( array(
 			'word_count'  => (int) get_option( 'jjaa_auto_word_count', JJAA_Generator::DEFAULT_WORD_COUNT ),
 			'image_count' => (int) get_option( 'jjaa_auto_image_count', JJAA_Generator::DEFAULT_IMAGE_COUNT ),
 		) );
-
-		if ( self::mode() !== 'off' ) {
-			wp_schedule_single_event( self::next_occurrence(), self::HOOK_AUTO );
-		}
 	}
 
 	/** حالت زمان‌بندی، با اعتبارسنجی. */
